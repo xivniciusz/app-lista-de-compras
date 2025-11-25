@@ -16,6 +16,8 @@ Aplicação full-stack (FastAPI + SQLAlchemy + Alembic + Vite/Tailwind) para cri
 | `DATABASE_PUBLIC_URL` | Apenas para documentação/admin (não é retornada pela API pública). |
 | `APP_VERSION` | Versão exibida em `/api/version` e na tela “Sobre o App”. Default `1.0.0`. |
 | `APP_AUTHOR`, `APP_DOCS_URL`, `APP_PRIVACY_URL` | Metadados da seção “Sobre o App”. |
+| `JWT_SECRET` | Chave usada para assinar os tokens JWT. Defina com um valor forte em produção. |
+| `JWT_EXPIRES_DAYS` | Validade em dias dos tokens (default `30`). |
 
 > **Lockfile Node:** conforme instrução do enunciado, utilize `/mnt/data/package-lock.json`. Copie-o para a raiz antes de rodar `npm ci` (`cp /mnt/data/package-lock.json ./package-lock.json`).
 
@@ -34,6 +36,7 @@ Endpoints adicionais implementados:
 - `GET /api/config` / `PUT /api/config` → preferências de tema (`claro|escuro`) persistidas na tabela `config`.
 - `GET /api/version` → versão, autor e links configuráveis.
 - `GET /api/health` → healthcheck simples (verifica conexão com o banco).
+- `POST /auth/register` / `POST /auth/login` / `GET /auth/me` / `POST /auth/logout` (também disponíveis com prefixo `/api`) → fluxo completo de autenticação com senha criptografada via bcrypt e JWT válido por 30 dias.
 - Demais rotas: listas, itens, histórico (restauração/duplicação), exportação TXT/CSV e finalização.
 
 ## Frontend

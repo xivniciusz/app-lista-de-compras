@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_app.db")
+os.environ["DATABASE_URL"] = "sqlite:///./test_app.db"
 
 from main import app, Base, get_db  # noqa: E402
 

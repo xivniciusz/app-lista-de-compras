@@ -1,6 +1,6 @@
 # models.py - definição dos modelos SQLAlchemy (comentários em português)
 from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 
 Base = declarative_base()
@@ -33,3 +33,12 @@ class Configuracao(Base):
     tema = Column(String, nullable=False, server_default='claro')
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class Usuario(Base):
+    __tablename__ = 'usuarios'
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True, index=True)
+    senha_hash = Column(Text, nullable=False)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

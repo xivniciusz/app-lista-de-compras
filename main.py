@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends, Body, Query
+from fastapi import FastAPI, HTTPException, Depends, Body, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.orm import selectinload
@@ -8,7 +9,9 @@ from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 from typing import Generator, Optional, Tuple
-from models import Base, Lista, Item, Configuracao
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from models import Base, Lista, Item, Configuracao, Usuario
 
 # Carrega variáveis de ambiente (.env)
 load_dotenv()
@@ -22,6 +25,9 @@ APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 APP_AUTHOR = os.getenv("APP_AUTHOR", "Equipe Lista de Compras")
 APP_DOCS_URL = os.getenv("APP_DOCS_URL", "https://github.com/xivniciusz/app-lista-de-compras")
 APP_PRIVACY_URL = os.getenv("APP_PRIVACY_URL", APP_DOCS_URL)
+JWT_SECRET = os.getenv("JWT_SECRET", "change-me")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRES_DAYS = int(os.getenv("JWT_EXPIRES_DAYS", "30"))
 
 # Configuração do SQLAlchemy
 engine_kwargs = {"pool_pre_ping": True}
@@ -32,6 +38,8 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 app = FastAPI(title="API Lista de Compras")
+security = HTTPBearer(auto_error=False)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Configuração CORS (simples) - ajustar conforme necessidade
 origins = ["*"]
@@ -88,6 +96,52 @@ def item_to_dict(i: Item):
     }
 
 
+def usuario_to_dict(usuario: Usuario):
+    return {
+        "id": usuario.id,
+        "nome": usuario.nome,
+        "email": usuario.email,
+        "criado_em": usuario.criado_em.isoformat() if usuario.criado_em else None,
+    }
+
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=JWT_EXPIRES_DAYS))
+    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        sub = payload.get("sub")
+        user_id = int(sub)
+    except (JWTError, TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+    return usuario
+
+
 def _obter_config(db: Session) -> Configuracao:
     cfg = db.query(Configuracao).order_by(Configuracao.id.asc()).first()
     if not cfg:
@@ -96,6 +150,14 @@ def _obter_config(db: Session) -> Configuracao:
         db.commit()
         db.refresh(cfg)
     return cfg
+
+
+def _normalizar_email(raw_email: str) -> str:
+    return (raw_email or "").strip().lower()
+
+
+def _validar_senha(senha: str) -> bool:
+    return bool(senha) and len(senha) >= 6
 
 # Endpoints de listas
 
@@ -401,6 +463,55 @@ def healthcheck(db: Session = Depends(get_db)):
         "database": db_ok,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.post("/auth/register", status_code=status.HTTP_201_CREATED)
+@app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
+def registrar_usuario(payload: Optional[dict] = Body(default=None), db: Session = Depends(get_db)):
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Dados inválidos")
+    nome = (payload.get("nome") or "").strip()
+    email = _normalizar_email(payload.get("email", ""))
+    senha = (payload.get("senha") or "").strip()
+    if not nome or not email or not _validar_senha(senha):
+        raise HTTPException(status_code=400, detail="Dados inválidos")
+    existente = db.query(Usuario).filter(Usuario.email == email).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="Email já utilizado")
+    usuario = Usuario(nome=nome, email=email, senha_hash=get_password_hash(senha))
+    db.add(usuario)
+    db.commit()
+    db.refresh(usuario)
+    return usuario_to_dict(usuario)
+
+
+@app.post("/auth/login")
+@app.post("/api/auth/login")
+def login(payload: Optional[dict] = Body(default=None), db: Session = Depends(get_db)):
+    erro = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
+    if not isinstance(payload, dict):
+        raise erro
+    email = _normalizar_email(payload.get("email", ""))
+    senha = (payload.get("senha") or "").strip()
+    if not email or not senha:
+        raise erro
+    usuario = db.query(Usuario).filter(Usuario.email == email).first()
+    if not usuario or not verify_password(senha, usuario.senha_hash):
+        raise erro
+    token = create_access_token({"sub": str(usuario.id)})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.get("/auth/me")
+@app.get("/api/auth/me")
+def obter_usuario_logado(usuario: Usuario = Depends(get_current_user)):
+    return usuario_to_dict(usuario)
+
+
+@app.post("/auth/logout")
+@app.post("/api/auth/logout")
+def logout(_: Usuario = Depends(get_current_user)):
+    return {"ok": True}
 
 
 def _aplicar_periodo(periodo: str, data_inicio: Optional[str], data_fim: Optional[str]) -> Tuple[Optional[datetime], Optional[datetime]]:

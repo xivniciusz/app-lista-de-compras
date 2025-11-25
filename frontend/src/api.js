@@ -1,9 +1,30 @@
 // api.js - funções utilitárias para chamadas à API (comentários em português)
 const rawBase = (import.meta?.env?.VITE_API_BASE ?? '/api').trim();
 const API_BASE = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+const AUTH_TOKEN_KEY = 'authToken';
 export function getApiBase() {
   // Exemplo de ajuste caso backend esteja em outra origem em produção
   return API_BASE;
+}
+
+export function getStoredToken() {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveAuthToken(token) {
+  if (!token) {
+    clearAuthToken();
+    return;
+  }
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
 const buildQueryString = (params = {}) => {
@@ -17,14 +38,27 @@ const buildQueryString = (params = {}) => {
 };
 
 // Função genérica para requisições
-export async function apiFetch(path, { method = 'GET', body, headers = {} } = {}) {
-  const config = { method, headers: { 'Content-Type': 'application/json', ...headers } };
+export async function apiFetch(path, { method = 'GET', body, headers = {}, auth = true } = {}) {
+  const finalHeaders = { 'Content-Type': 'application/json', ...headers };
+  if (auth) {
+    const token = getStoredToken();
+    if (token) {
+      finalHeaders.Authorization = `Bearer ${token}`;
+    }
+  }
+  const config = { method, headers: finalHeaders };
   if (body) config.body = JSON.stringify(body);
   const resp = await fetch(`${API_BASE}${path}`, config);
   if (!resp.ok) {
     // tenta ler mensagem de erro
     let msg = `Erro HTTP ${resp.status}`;
-    try { const dataErr = await resp.json(); msg = dataErr.error || msg; } catch {}
+    try { const dataErr = await resp.json(); msg = dataErr.error || dataErr.detail || msg; } catch {}
+    if (resp.status === 401 && auth) {
+      clearAuthToken();
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login.html') {
+        window.location.href = '/login.html';
+      }
+    }
     throw new Error(msg);
   }
   // tentar parse json (204 não tem corpo)
@@ -82,4 +116,11 @@ export const ConfigAPI = {
   atualizar: (tema) => apiFetch('/config', { method: 'PUT', body: { tema } }),
   versao: () => apiFetch('/version'),
   health: () => apiFetch('/health'),
+};
+
+export const AuthAPI = {
+  register: (dados) => apiFetch('/auth/register', { method: 'POST', body: dados, auth: false }),
+  login: (dados) => apiFetch('/auth/login', { method: 'POST', body: dados, auth: false }),
+  me: () => apiFetch('/auth/me'),
+  logout: () => apiFetch('/auth/logout', { method: 'POST' }),
 };

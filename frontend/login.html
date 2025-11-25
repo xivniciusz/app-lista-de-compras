@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="min-h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrar • Lista de Compras</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/index.css" />
+    <style>
+      .auth-card {
+        transition: transform 0.45s ease, opacity 0.45s ease;
+      }
+      .mode-register .card-login {
+        transform: translateX(-12px) scale(0.98);
+        opacity: 0.85;
+      }
+      .mode-register .card-register {
+        transform: translateX(12px) scale(1.02);
+        opacity: 1;
+      }
+      .toggle-pill {
+        transition: transform 0.45s ease;
+      }
+      .mode-register .toggle-pill {
+        transform: translateX(100%);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 text-gray-900 dark:text-neutral-100">
+    <main class="min-h-screen flex items-center justify-center px-4 py-10">
+      <div id="authWrapper" class="relative w-full max-w-5xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur rounded-2xl shadow-2xl border border-white/40 dark:border-neutral-800 overflow-hidden transition-colors">
+        <div class="absolute top-6 left-6 right-6 flex text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+          <button data-action="show-login" class="flex-1 py-2">Já tenho conta</button>
+          <button data-action="show-register" class="flex-1 py-2">Quero me cadastrar</button>
+          <span class="toggle-pill absolute inset-y-0 left-0 w-1/2 bg-[#26A653] text-white rounded-xl grid place-content-center text-xs uppercase tracking-wide pointer-events-none">Login</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-8 px-8 pt-20 pb-10">
+          <article class="card-login auth-card bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl shadow-lg p-6 space-y-5">
+            <div>
+              <h1 class="text-2xl font-bold text-neutral-900 dark:text-white">Bem-vindo de volta</h1>
+              <p class="text-sm text-neutral-500 dark:text-neutral-400">Acesse suas listas com seu email e senha.</p>
+            </div>
+            <form id="loginForm" class="space-y-4">
+              <label class="space-y-1 text-sm">
+                Email
+                <div class="relative">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l9 6 9-6" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+                    </svg>
+                  </span>
+                  <input id="loginEmail" type="email" required autocomplete="email" class="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/70 dark:bg-neutral-900/70 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#26A653]" placeholder="email@exemplo.com" />
+                </div>
+              </label>
+              <label class="space-y-1 text-sm">
+                Senha
+                <div class="relative">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6-6V9a6 6 0 1112 0v2m-9 4h6a2 2 0 012 2v3H5v-3a2 2 0 012-2z" />
+                    </svg>
+                  </span>
+                  <input id="loginSenha" type="password" required autocomplete="current-password" class="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/70 dark:bg-neutral-900/70 pl-10 pr-20 py-2 focus:outline-none focus:ring-2 focus:ring-[#26A653]" placeholder="••••••" />
+                  <button type="button" data-toggle-password="loginSenha" class="absolute inset-y-0 right-3 text-xs font-semibold text-[#26A653]">Mostrar</button>
+                </div>
+              </label>
+              <div id="loginMessage" class="hidden text-sm rounded-lg px-3 py-2"></div>
+              <button id="btnLogin" class="w-full bg-[#26A653] hover:bg-[#1f8a46] active:bg-[#19723a] text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition disabled:opacity-70">
+                <svg data-spinner class="hidden h-5 w-5 animate-spin" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span data-label>Entrar</span>
+              </button>
+              <p class="text-sm text-center text-neutral-500 dark:text-neutral-400">
+                Ainda não tem conta?
+                <button type="button" data-action="show-register" class="text-[#26A653] font-semibold">Crie agora</button>
+              </p>
+            </form>
+          </article>
+
+          <article class="card-register auth-card bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl shadow-lg p-6 space-y-5">
+            <div>
+              <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">Criar conta</h2>
+              <p class="text-sm text-neutral-500 dark:text-neutral-400">Cadastre-se para salvar suas preferências e sincronizar as listas.</p>
+            </div>
+            <form id="registerForm" class="space-y-4">
+              <label class="space-y-1 text-sm">
+                Nome completo
+                <div class="relative">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </span>
+                  <input id="registerNome" type="text" required autocomplete="name" class="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/70 dark:bg-neutral-900/70 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#26A653]" placeholder="Nome e sobrenome" />
+                </div>
+              </label>
+              <label class="space-y-1 text-sm">
+                Email
+                <div class="relative">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l9 6 9-6" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+                    </svg>
+                  </span>
+                  <input id="registerEmail" type="email" required autocomplete="email" class="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/70 dark:bg-neutral-900/70 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#26A653]" placeholder="email@exemplo.com" />
+                </div>
+              </label>
+              <label class="space-y-1 text-sm">
+                Senha
+                <div class="relative">
+                  <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6-6V9a6 6 0 1112 0v2m-9 4h6a2 2 0 012 2v3H5v-3a2 2 0 012-2z" />
+                    </svg>
+                  </span>
+                  <input id="registerSenha" type="password" required autocomplete="new-password" class="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white/70 dark:bg-neutral-900/70 pl-10 pr-20 py-2 focus:outline-none focus:ring-2 focus:ring-[#26A653]" placeholder="Mínimo 6 caracteres" />
+                  <button type="button" data-toggle-password="registerSenha" class="absolute inset-y-0 right-3 text-xs font-semibold text-[#26A653]">Mostrar</button>
+                </div>
+              </label>
+              <div id="registerMessage" class="hidden text-sm rounded-lg px-3 py-2"></div>
+              <button id="btnRegister" class="w-full bg-[#26A653] hover:bg-[#1f8a46] active:bg-[#19723a] text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition disabled:opacity-70">
+                <svg data-spinner class="hidden h-5 w-5 animate-spin" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span data-label>Criar conta</span>
+              </button>
+              <p class="text-sm text-center text-neutral-500 dark:text-neutral-400">
+                Já é cadastrado?
+                <button type="button" data-action="show-login" class="text-[#26A653] font-semibold">Faça login</button>
+              </p>
+            </form>
+          </article>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/src/auth/login.js"></script>
+  </body>
+</html>

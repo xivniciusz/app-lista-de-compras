@@ -1,6 +1,14 @@
 import './index.css';
 import './api.js';
-import { ListasAPI, ItensAPI, HistoricoAPI, ConfigAPI } from './api.js';
+import {
+  ListasAPI,
+  ItensAPI,
+  HistoricoAPI,
+  ConfigAPI,
+  AuthAPI,
+  getStoredToken,
+  clearAuthToken,
+} from './api.js';
 
 // Comentários em português explicando cada parte
 const appEl = document.getElementById('app');
@@ -26,6 +34,50 @@ const historicoEstado = {
 };
 let configPreferencias = { tema: 'claro' };
 let versaoInfo = null;
+let usuarioAtual = null;
+
+function atualizarHeaderUsuario() {
+  const nomeEl = document.getElementById('usuarioNome');
+  const avatarEl = document.getElementById('avatarUsuario');
+  if (!usuarioAtual) {
+    if (nomeEl) nomeEl.textContent = '—';
+    if (avatarEl) avatarEl.textContent = 'U';
+    return;
+  }
+  const nome = usuarioAtual.nome || usuarioAtual.email || 'Usuário';
+  if (nomeEl) nomeEl.textContent = nome;
+  if (avatarEl) {
+    const inicial = nome.trim().charAt(0).toUpperCase() || 'U';
+    avatarEl.textContent = inicial;
+  }
+}
+
+async function realizarLogout() {
+  try {
+    await AuthAPI.logout();
+  } catch (err) {
+    console.warn('Falha ao finalizar sessão', err);
+  } finally {
+    clearAuthToken();
+    window.location.href = '/login.html';
+  }
+}
+
+async function garantirSessao() {
+  const token = getStoredToken();
+  if (!token) {
+    window.location.href = '/login.html';
+    throw new Error('Sessão expirada');
+  }
+  try {
+    usuarioAtual = await AuthAPI.me();
+    atualizarHeaderUsuario();
+  } catch (err) {
+    clearAuthToken();
+    window.location.href = '/login.html';
+    throw err;
+  }
+}
 
 function formatarData(iso) {
   const d = new Date(iso);
@@ -129,6 +181,8 @@ function inicializarEventos() {
   const btnExportConfig = document.getElementById('btnExportConfig');
   const inputImportConfig = document.getElementById('inputImportConfig');
   const btnCheckHealth = document.getElementById('btnCheckHealth');
+  const btnLogout = document.getElementById('btnLogout');
+  const btnLogoutMobile = document.getElementById('btnLogoutMobile');
 
   // Alternar tema claro/escuro
   btnTema.addEventListener('click', () => {
@@ -168,6 +222,11 @@ function inicializarEventos() {
   if (btnCheckHealth) {
     btnCheckHealth.addEventListener('click', () => verificarSaudeBackend());
   }
+
+  [btnLogout, btnLogoutMobile].forEach((btn) => {
+    if (!btn) return;
+    btn.addEventListener('click', () => realizarLogout());
+  });
 
   // Abrir modal criar
   btnNova.addEventListener('click', () => {
@@ -917,7 +976,16 @@ if (configInicial) {
 aplicarTema(configPreferencias.tema);
 atualizarToggleTema();
 
-inicializarEventos();
-sincronizarConfigPreferencias();
-carregarVersao();
-carregarListas();
+async function iniciarAplicacao() {
+  try {
+    await garantirSessao();
+    inicializarEventos();
+    sincronizarConfigPreferencias();
+    carregarVersao();
+    carregarListas();
+  } catch (err) {
+    console.warn('Inicialização interrompida', err);
+  }
+}
+
+iniciarAplicacao();
