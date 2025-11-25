@@ -473,9 +473,15 @@ function atualizarTabs() {
   });
   const secaoAtivas = document.getElementById('secaoAtivas');
   const secaoHistorico = document.getElementById('secaoHistorico');
-  if (secaoAtivas && secaoHistorico) {
+  const secaoConfig = document.getElementById('secaoConfig');
+  if (secaoAtivas) {
     secaoAtivas.classList.toggle('hidden', abaAtiva !== 'ativas');
+  }
+  if (secaoHistorico) {
     secaoHistorico.classList.toggle('hidden', abaAtiva !== 'historico');
+  }
+  if (secaoConfig) {
+    secaoConfig.classList.toggle('hidden', abaAtiva !== 'config');
   }
 }
 
