@@ -137,27 +137,6 @@ def listar_itens(lista_id: int, db: Session = Depends(get_db)):
     )
     return [item_to_dict(i) for i in itens]
 
-@app.put("/api/listas/{lista_id}/itens/{item_id}")
-def atualizar_item(lista_id: int, item_id: int, payload: dict, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id, Item.lista_id == lista_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Item não encontrado")
-    if "nome" in payload:
-        nome = (payload.get("nome") or "").strip()
-        if not nome:
-            raise HTTPException(status_code=400, detail="Nome do item é obrigatório")
-        item.nome = nome
-    if "quantidade" in payload:
-        qtd = payload.get("quantidade")
-        if qtd is not None:
-            item.quantidade = int(qtd)
-    if "comprado" in payload:
-        item.comprado = bool(payload.get("comprado"))
-    db.commit()
-    db.refresh(item)
-    return item_to_dict(item)
-
-
 @app.put("/api/listas/{lista_id}/itens/ordenar")
 def reordenar_itens(lista_id: int, payload: dict, db: Session = Depends(get_db)):
     lista = db.query(Lista).filter(Lista.id == lista_id).first()
@@ -190,6 +169,27 @@ def reordenar_itens(lista_id: int, payload: dict, db: Session = Depends(get_db))
 
     db.commit()
     return {"ok": True}
+
+
+@app.put("/api/listas/{lista_id}/itens/{item_id}")
+def atualizar_item(lista_id: int, item_id: int, payload: dict, db: Session = Depends(get_db)):
+    item = db.query(Item).filter(Item.id == item_id, Item.lista_id == lista_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    if "nome" in payload:
+        nome = (payload.get("nome") or "").strip()
+        if not nome:
+            raise HTTPException(status_code=400, detail="Nome do item é obrigatório")
+        item.nome = nome
+    if "quantidade" in payload:
+        qtd = payload.get("quantidade")
+        if qtd is not None:
+            item.quantidade = int(qtd)
+    if "comprado" in payload:
+        item.comprado = bool(payload.get("comprado"))
+    db.commit()
+    db.refresh(item)
+    return item_to_dict(item)
 
 @app.delete("/api/listas/{lista_id}/itens/{item_id}")
 def excluir_item(lista_id: int, item_id: int, db: Session = Depends(get_db)):
