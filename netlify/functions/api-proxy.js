@@ -41,6 +41,8 @@ export async function handler(event) {
   backendResponse.headers.forEach((value, key) => {
     // Evita sobrescrever cabeçalhos sensíveis do Netlify
     if (key.toLowerCase() === 'content-length') return;
+    if (key.toLowerCase() === 'content-encoding') return;
+    if (key.toLowerCase() === 'transfer-encoding') return;
     responseHeaders[key] = value;
   });
 
