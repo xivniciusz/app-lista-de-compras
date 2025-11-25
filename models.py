@@ -25,3 +25,11 @@ class Item(Base):
 
 # Relacionamento na Lista
 Lista.itens = relationship('Item', backref='lista', cascade='all, delete-orphan', passive_deletes=True)
+
+
+class Configuracao(Base):
+    __tablename__ = 'config'
+    id = Column(Integer, primary_key=True, index=True)
+    tema = Column(String, nullable=False, server_default='claro')
+    criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -1,6 +1,6 @@
 import './index.css';
 import './api.js';
-import { ListasAPI, ItensAPI, HistoricoAPI } from './api.js';
+import { ListasAPI, ItensAPI, HistoricoAPI, ConfigAPI } from './api.js';
 
 // Comentários em português explicando cada parte
 const appEl = document.getElementById('app');
@@ -24,6 +24,8 @@ const historicoEstado = {
   dataInicio: '',
   dataFim: '',
 };
+let configPreferencias = { tema: 'claro' };
+let versaoInfo = null;
 
 function formatarData(iso) {
   const d = new Date(iso);
@@ -122,15 +124,49 @@ function inicializarEventos() {
   const historicoFim = document.getElementById('historicoFim');
   const btnMaisHistorico = document.getElementById('btnMaisHistorico');
   const gridHistorico = document.getElementById('gridHistorico');
+  const toggleTema = document.getElementById('toggleTema');
+  const btnLimparCache = document.getElementById('btnLimparCache');
+  const btnExportConfig = document.getElementById('btnExportConfig');
+  const inputImportConfig = document.getElementById('inputImportConfig');
+  const btnCheckHealth = document.getElementById('btnCheckHealth');
 
   // Alternar tema claro/escuro
   btnTema.addEventListener('click', () => {
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('temaEscuro', document.documentElement.classList.contains('dark') ? '1' : '0');
+    const novoTema = configPreferencias.tema === 'escuro' ? 'claro' : 'escuro';
+    atualizarTema(novoTema);
   });
-  // Carregar preferência inicial
-  if (localStorage.getItem('temaEscuro') === '1') {
-    document.documentElement.classList.add('dark');
+
+  if (toggleTema) {
+    toggleTema.addEventListener('change', () => {
+      const novoTema = toggleTema.checked ? 'escuro' : 'claro';
+      atualizarTema(novoTema);
+    });
+  }
+
+  if (btnLimparCache) {
+    btnLimparCache.addEventListener('click', () => limparCacheLocalmente());
+  }
+
+  if (btnExportConfig) {
+    btnExportConfig.addEventListener('click', () => exportarConfigAtual());
+  }
+
+  if (inputImportConfig) {
+    inputImportConfig.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        await importarConfigArquivo(file);
+      } catch (err) {
+        mostrarStatus(err.message || 'Falha ao importar configuração.');
+      } finally {
+        e.target.value = '';
+      }
+    });
+  }
+
+  if (btnCheckHealth) {
+    btnCheckHealth.addEventListener('click', () => verificarSaudeBackend());
   }
 
   // Abrir modal criar
@@ -275,6 +311,158 @@ function mostrarStatus(msg) {
   setTimeout(() => { el.textContent = ''; }, 4000);
 }
 
+function aplicarTema(tema) {
+  const isDark = tema === 'escuro';
+  document.documentElement.classList.toggle('dark', isDark);
+}
+
+function carregarConfigLocal() {
+  const legado = localStorage.getItem('temaEscuro');
+  if (legado !== null) {
+    const tema = legado === '1' ? 'escuro' : 'claro';
+    localStorage.setItem('appConfig', JSON.stringify({ tema }));
+    localStorage.removeItem('temaEscuro');
+  }
+  try {
+    const bruto = localStorage.getItem('appConfig');
+    if (!bruto) return null;
+    const parsed = JSON.parse(bruto);
+    if (parsed && typeof parsed === 'object' && ['claro', 'escuro'].includes(parsed.tema)) {
+      return parsed;
+    }
+  } catch (err) {
+    console.warn('Config local inválida', err);
+  }
+  return null;
+}
+
+function salvarConfigLocal(cfg) {
+  localStorage.setItem('appConfig', JSON.stringify(cfg));
+}
+
+function atualizarToggleTema() {
+  const toggle = document.getElementById('toggleTema');
+  const track = document.getElementById('toggleTrack');
+  const thumb = document.getElementById('toggleThumb');
+  const label = document.getElementById('toggleLabel');
+  const isDark = configPreferencias.tema === 'escuro';
+  if (toggle) toggle.checked = isDark;
+  if (track) {
+    track.classList.toggle('bg-verde-principal', isDark);
+    track.classList.toggle('bg-neutral-300', !isDark);
+    track.classList.toggle('dark:bg-neutral-700', !isDark);
+  }
+  if (thumb) {
+    thumb.style.transform = isDark ? 'translateX(28px)' : 'translateX(0)';
+  }
+  if (label) {
+    label.textContent = isDark ? 'Modo escuro' : 'Modo claro';
+  }
+}
+
+async function sincronizarConfigPreferencias() {
+  const local = carregarConfigLocal();
+  if (local) {
+    configPreferencias = { ...configPreferencias, ...local };
+  }
+  aplicarTema(configPreferencias.tema);
+  atualizarToggleTema();
+  try {
+    const remoto = await ConfigAPI.obter();
+    configPreferencias = { ...configPreferencias, ...remoto };
+    salvarConfigLocal(configPreferencias);
+    aplicarTema(configPreferencias.tema);
+    atualizarToggleTema();
+  } catch (err) {
+    console.warn('Falha ao sincronizar config, usando local.', err);
+  }
+}
+
+async function atualizarTema(tema) {
+  configPreferencias.tema = tema;
+  aplicarTema(tema);
+  atualizarToggleTema();
+  salvarConfigLocal(configPreferencias);
+  try {
+    await ConfigAPI.atualizar(tema);
+    mostrarStatus('Preferência salva.');
+  } catch (err) {
+    mostrarStatus('Tema salvo localmente (offline).');
+    console.warn('Falha ao salvar config remoto', err);
+  }
+}
+
+async function carregarVersao() {
+  if (versaoInfo) {
+    atualizarInfoVersao();
+    return;
+  }
+  try {
+    versaoInfo = await ConfigAPI.versao();
+    atualizarInfoVersao();
+  } catch (err) {
+    console.warn('Não foi possível obter versão', err);
+  }
+}
+
+function atualizarInfoVersao() {
+  if (!versaoInfo) return;
+  const info = document.getElementById('infoVersao');
+  if (info) {
+    info.innerHTML = `
+      <div class='flex justify-between'><dt class='text-neutral-500'>Versão</dt><dd>${versaoInfo.version || '—'}</dd></div>
+      <div class='flex justify-between'><dt class='text-neutral-500'>Autor</dt><dd>${versaoInfo.author || '—'}</dd></div>
+    `;
+  }
+  const linkDocs = document.getElementById('linkDocs');
+  const linkPrivacy = document.getElementById('linkPrivacy');
+  if (linkDocs && versaoInfo.docs) {
+    linkDocs.href = versaoInfo.docs;
+  }
+  if (linkPrivacy && versaoInfo.privacy) {
+    linkPrivacy.href = versaoInfo.privacy;
+  }
+}
+
+function limparCacheLocalmente() {
+  localStorage.removeItem('appConfig');
+  localStorage.removeItem('temaEscuro');
+  historicoEstado.busca = '';
+  mostrarStatus('Cache local limpo. Atualize as preferências se necessário.');
+}
+
+function exportarConfigAtual() {
+  const blob = new Blob([JSON.stringify(configPreferencias, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'config-lista-compras.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function importarConfigArquivo(file) {
+  const text = await file.text();
+  const data = JSON.parse(text);
+  if (!data || typeof data !== 'object' || !['claro', 'escuro'].includes(data.tema)) {
+    throw new Error('Arquivo de configuração inválido.');
+  }
+  await atualizarTema(data.tema);
+  mostrarStatus('Configuração importada.');
+}
+
+async function verificarSaudeBackend() {
+  try {
+    const status = await ConfigAPI.health();
+    const label = status.database ? 'Banco OK' : 'Banco indisponível';
+    mostrarStatus(`${status.status.toUpperCase()} • ${label}`);
+  } catch (err) {
+    mostrarStatus('Não foi possível verificar o status.');
+  }
+}
+
 function atualizarTabs() {
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     const ativa = btn.getAttribute('data-tab') === abaAtiva;
@@ -300,6 +488,13 @@ function alternarAba(novaAba) {
     listaAtivaId = null;
     itensDetalhe = [];
     carregarHistorico({ reset: true });
+  } else if (abaAtiva === 'config') {
+    const detalhe = document.getElementById('detalheLista');
+    if (detalhe) detalhe.classList.add('hidden');
+    listaAtivaId = null;
+    itensDetalhe = [];
+    atualizarToggleTema();
+    carregarVersao();
   }
   atualizarTabs();
 }
@@ -709,5 +904,14 @@ document.body.addEventListener('click', (e) => {
   }
 });
 
-carregarListas();
+const configInicial = carregarConfigLocal();
+if (configInicial) {
+  configPreferencias = { ...configPreferencias, ...configInicial };
+}
+aplicarTema(configPreferencias.tema);
+atualizarToggleTema();
+
 inicializarEventos();
+sincronizarConfigPreferencias();
+carregarVersao();
+carregarListas();

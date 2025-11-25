@@ -1,40 +1,6 @@
-import os
 from datetime import datetime, timedelta, timezone
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_hist.db")
-
-from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
-
-from main import app, Base, get_db  # noqa: E402
-from models import Lista, Item  # noqa: E402
-
-engine = create_engine(os.environ["DATABASE_URL"], connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-
-def setup_function(_: object):
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-
-def teardown_module(_: object):
-    Base.metadata.drop_all(bind=engine)
-
-
-client = TestClient(app)
+from models import Lista, Item
 
 
 def criar_lista(db, nome, finalizada=False, itens=None, finalizada_em=None):
@@ -59,24 +25,22 @@ def criar_lista(db, nome, finalizada=False, itens=None, finalizada_em=None):
     return lista
 
 
-def test_historico_listagem_aplica_busca_e_periodo():
-    db = TestingSessionLocal()
+def test_historico_listagem_aplica_busca_e_periodo(db_session, client):
     agora = datetime.now(timezone.utc)
     criar_lista(
-        db,
+        db_session,
         nome="Feira semanal",
         finalizada=True,
         finalizada_em=agora - timedelta(days=2),
         itens=[{"nome": "Banana"}],
     )
     criar_lista(
-        db,
+        db_session,
         nome="Viagem",
         finalizada=True,
         finalizada_em=agora - timedelta(days=40),
         itens=[{"nome": "Protetor"}],
     )
-    db.close()
 
     resp = client.get("/api/historico", params={"busca": "Feira", "periodo": "7d"})
     assert resp.status_code == 200
@@ -86,16 +50,14 @@ def test_historico_listagem_aplica_busca_e_periodo():
     assert data["data"][0]["preview_itens"][0]["nome"] == "Banana"
 
 
-def test_restaurar_lista_reseta_itens_e_nome():
-    db = TestingSessionLocal()
+def test_restaurar_lista_reseta_itens_e_nome(db_session, client, session_factory):
     origem = criar_lista(
-        db,
+        db_session,
         nome="Compras julho",
         finalizada=True,
         finalizada_em=datetime.now(timezone.utc) - timedelta(days=1),
         itens=[{"nome": "Arroz", "comprado": True, "ordem": 0}, {"nome": "Feijão", "comprado": False, "ordem": 1}],
     )
-    db.close()
 
     resp = client.post(f"/api/historico/restaurar/{origem.id}")
     assert resp.status_code == 200
@@ -103,53 +65,63 @@ def test_restaurar_lista_reseta_itens_e_nome():
     assert restaurada["finalizada"] is False
     assert "restaurada" in restaurada["nome"].lower()
 
-    db = TestingSessionLocal()
-    itens_restaurados = db.query(Item).filter(Item.lista_id == restaurada["id"]).order_by(Item.ordem.asc()).all()
+    verificar = session_factory()
+    try:
+        itens_restaurados = (
+            verificar.query(Item)
+            .filter(Item.lista_id == restaurada["id"])
+            .order_by(Item.ordem.asc())
+            .all()
+        )
+    finally:
+        verificar.close()
     assert len(itens_restaurados) == 2
     assert all(not item.comprado for item in itens_restaurados)
     assert [item.nome for item in itens_restaurados] == ["Arroz", "Feijão"]
-    db.close()
 
 
-def test_duplicar_lista_preserva_status_e_itens():
-    db = TestingSessionLocal()
+def test_duplicar_lista_preserva_status_e_itens(db_session, client, session_factory):
     origem = criar_lista(
-        db,
+        db_session,
         nome="Churrasco",
         finalizada=True,
         finalizada_em=datetime.now(timezone.utc) - timedelta(days=3),
         itens=[{"nome": "Carvão", "comprado": True, "ordem": 0}, {"nome": "Carne", "comprado": False, "ordem": 1}],
     )
-    db.close()
 
     resp = client.post(f"/api/historico/duplicar/{origem.id}")
     assert resp.status_code == 200
     duplicada = resp.json()
     assert duplicada["finalizada"] is False
-    db = TestingSessionLocal()
-    itens_duplicados = db.query(Item).filter(Item.lista_id == duplicada["id"]).order_by(Item.ordem.asc()).all()
+    verificar = session_factory()
+    try:
+        itens_duplicados = (
+            verificar.query(Item)
+            .filter(Item.lista_id == duplicada["id"])
+            .order_by(Item.ordem.asc())
+            .all()
+        )
+    finally:
+        verificar.close()
     assert len(itens_duplicados) == 2
     assert [item.comprado for item in itens_duplicados] == [True, False]
     assert {item.lista_id for item in itens_duplicados} == {duplicada["id"]}
-    db.close()
 
 
-def test_nome_personalizado_respeitado_com_sufixo_em_conflito():
-    db = TestingSessionLocal()
+def test_nome_personalizado_respeitado_com_sufixo_em_conflito(db_session, client):
     criar_lista(
-        db,
+        db_session,
         nome="Quebra",
         finalizada=False,
         itens=[{"nome": "Item"}],
     )
     origem = criar_lista(
-        db,
+        db_session,
         nome="Quebra",
         finalizada=True,
         finalizada_em=datetime.now(timezone.utc),
         itens=[{"nome": "Item 1"}],
     )
-    db.close()
 
     resp = client.post(f"/api/historico/duplicar/{origem.id}", json={"nome": "Quebra"})
     assert resp.status_code == 200
@@ -158,17 +130,15 @@ def test_nome_personalizado_respeitado_com_sufixo_em_conflito():
     assert "cópia" in novo["nome"].lower()
 
 
-def test_historico_previas_limitadas_a_tres():
-    db = TestingSessionLocal()
+def test_historico_previas_limitadas_a_tres(db_session, client):
     itens = [{"nome": f"Item {i}", "ordem": i} for i in range(5)]
     criar_lista(
-        db,
+        db_session,
         nome="Mega lista",
         finalizada=True,
         finalizada_em=datetime.now(timezone.utc),
         itens=itens,
     )
-    db.close()
 
     resp = client.get("/api/historico", params={"limit": 1})
     payload = resp.json()

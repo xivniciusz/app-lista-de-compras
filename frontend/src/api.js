@@ -76,3 +76,10 @@ export const HistoricoAPI = {
     return apiFetch(`/historico/duplicar/${id}`, { method: 'POST', body });
   },
 };
+
+export const ConfigAPI = {
+  obter: () => apiFetch('/config'),
+  atualizar: (tema) => apiFetch('/config', { method: 'PUT', body: { tema } }),
+  versao: () => apiFetch('/version'),
+  health: () => apiFetch('/health'),
+};

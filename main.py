@@ -1,14 +1,14 @@
 from fastapi import FastAPI, HTTPException, Depends, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 from typing import Generator, Optional, Tuple
-from models import Base, Lista, Item
+from models import Base, Lista, Item, Configuracao
 
 # Carrega variáveis de ambiente (.env)
 load_dotenv()
@@ -17,6 +17,11 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL não definida no ambiente")
+
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+APP_AUTHOR = os.getenv("APP_AUTHOR", "Equipe Lista de Compras")
+APP_DOCS_URL = os.getenv("APP_DOCS_URL", "https://github.com/xivniciusz/app-lista-de-compras")
+APP_PRIVACY_URL = os.getenv("APP_PRIVACY_URL", APP_DOCS_URL)
 
 # Configuração do SQLAlchemy
 engine_kwargs = {"pool_pre_ping": True}
@@ -81,6 +86,16 @@ def item_to_dict(i: Item):
         "ordem": i.ordem,
         "criado_em": i.criado_em.isoformat() if i.criado_em else None,
     }
+
+
+def _obter_config(db: Session) -> Configuracao:
+    cfg = db.query(Configuracao).order_by(Configuracao.id.asc()).first()
+    if not cfg:
+        cfg = Configuracao(tema="claro")
+        db.add(cfg)
+        db.commit()
+        db.refresh(cfg)
+    return cfg
 
 # Endpoints de listas
 
@@ -340,6 +355,52 @@ def exportar_lista(lista_id: int, formato: str = "txt", db: Session = Depends(ge
 
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return PlainTextResponse(content=conteudo, media_type=media_type, headers=headers)
+
+
+@app.get("/api/config")
+def obter_config(db: Session = Depends(get_db)):
+    cfg = _obter_config(db)
+    return {"tema": cfg.tema or "claro"}
+
+
+@app.put("/api/config")
+def atualizar_config(payload: Optional[dict] = Body(default=None), db: Session = Depends(get_db)):
+    tema = None
+    if isinstance(payload, dict):
+        tema = (payload.get("tema") or "").strip().lower()
+    if tema not in {"claro", "escuro"}:
+        raise HTTPException(status_code=400, detail="Tema inválido. Use 'claro' ou 'escuro'.")
+    cfg = _obter_config(db)
+    cfg.tema = tema
+    db.commit()
+    db.refresh(cfg)
+    return {"tema": cfg.tema}
+
+
+@app.get("/api/version")
+def obter_versao():
+    return {
+        "version": APP_VERSION,
+        "author": APP_AUTHOR,
+        "docs": APP_DOCS_URL,
+        "privacy": APP_PRIVACY_URL,
+    }
+
+
+@app.get("/api/health")
+def healthcheck(db: Session = Depends(get_db)):
+    db_ok = True
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db.rollback()
+        db_ok = False
+    status = "ok" if db_ok else "degraded"
+    return {
+        "status": status,
+        "database": db_ok,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _aplicar_periodo(periodo: str, data_inicio: Optional[str], data_fim: Optional[str]) -> Tuple[Optional[datetime], Optional[datetime]]:

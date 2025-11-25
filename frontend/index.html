@@ -26,6 +26,7 @@
           <div class="flex flex-wrap gap-2">
             <button data-tab="ativas" class="tab-btn px-4 py-2 rounded font-medium border border-transparent bg-verde-principal text-white">Listas ativas</button>
             <button data-tab="historico" class="tab-btn px-4 py-2 rounded font-medium border text-neutral-600 dark:text-neutral-200">Histórico</button>
+            <button data-tab="config" class="tab-btn px-4 py-2 rounded font-medium border text-neutral-600 dark:text-neutral-200">Configurações</button>
           </div>
           <span id="statusMsg" class="text-sm text-neutral-600 dark:text-neutral-300"></span>
         </div>
@@ -64,6 +65,46 @@
           <div id="gridHistorico" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
           <div class="flex justify-center">
             <button id="btnMaisHistorico" class="px-4 py-2 border rounded text-sm">Carregar mais</button>
+          </div>
+        </section>
+
+        <section id="secaoConfig" class="space-y-6 hidden">
+          <div class="bg-white dark:bg-neutral-900 border rounded-lg p-5 shadow space-y-4">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h2 class="text-lg font-semibold">Preferências de Tema</h2>
+                <p class="text-sm text-neutral-500">Escolha entre modo claro ou escuro. Mudanças são salvas localmente e no servidor.</p>
+              </div>
+              <label class="inline-flex items-center cursor-pointer select-none">
+                <input type="checkbox" id="toggleTema" class="sr-only" />
+                <span class="w-14 h-7 bg-neutral-300 dark:bg-neutral-700 rounded-full flex items-center p-1 transition-all duration-200" id="toggleTrack">
+                  <span class="w-5 h-5 bg-white rounded-full shadow transform transition-all duration-200" id="toggleThumb"></span>
+                </span>
+                <span class="ml-3 text-sm font-medium" id="toggleLabel">Modo escuro</span>
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-3 text-sm">
+              <button id="btnLimparCache" class="px-4 py-2 border rounded hover:bg-neutral-50 dark:hover:bg-neutral-800">Limpar cache local</button>
+              <button id="btnExportConfig" class="px-4 py-2 border rounded hover:bg-neutral-50 dark:hover:bg-neutral-800">Exportar config (JSON)</button>
+              <label class="px-4 py-2 border rounded cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                Importar config
+                <input type="file" id="inputImportConfig" accept="application/json" class="hidden" />
+              </label>
+              <button id="btnCheckHealth" class="px-4 py-2 border rounded hover:bg-neutral-50 dark:hover:bg-neutral-800">Verificar status</button>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-neutral-900 border rounded-lg p-5 shadow space-y-3">
+            <h2 class="text-lg font-semibold">Sobre o App</h2>
+            <p class="text-sm text-neutral-500">Versão, autor e links úteis para documentação e política de privacidade.</p>
+            <dl class="text-sm space-y-2" id="infoVersao">
+              <div class="flex justify-between"><dt class="text-neutral-500">Versão</dt><dd>—</dd></div>
+              <div class="flex justify-between"><dt class="text-neutral-500">Autor</dt><dd>—</dd></div>
+            </dl>
+            <div class="flex flex-wrap gap-3 text-sm">
+              <a id="linkDocs" class="px-4 py-2 border rounded text-verde-principal hover:bg-verde-claro/10" href="#" target="_blank" rel="noreferrer">Documentação</a>
+              <a id="linkPrivacy" class="px-4 py-2 border rounded text-verde-principal hover:bg-verde-claro/10" href="#" target="_blank" rel="noreferrer">Privacidade</a>
+            </div>
           </div>
         </section>
       </main>
