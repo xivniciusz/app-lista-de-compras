@@ -1,0 +1,10 @@
+# Configuração Netlify para build Vite + FastAPI (comentários em português)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20.17.0"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Caso precise rodar comandos adicionais antes do build (ex.: instalar deps python), use [[plugins]] ou scripts separados.
