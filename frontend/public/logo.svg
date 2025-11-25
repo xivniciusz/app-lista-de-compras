@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-labelledby="title desc">
+  <title id="title">Lista de Compras</title>
+  <desc id="desc">Ícone de sacola verde com checklist e texto Lista de Compras</desc>
+  <defs>
+    <style>
+      .bag { fill: none; stroke: #26A653; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+      .check { fill: none; stroke: #26A653; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+      .line { stroke: #26A653; stroke-width: 10; stroke-linecap: round; }
+    </style>
+  </defs>
+  <g transform="translate(20 10)">
+    <path class="bag" d="M30 30 h100 a10 10 0 0 1 10 10 v110 a10 10 0 0 1 -10 10 h-100 a10 10 0 0 1 -10 -10 v-110 a10 10 0 0 1 10 -10 z" />
+    <path class="bag" d="M55 45 v-10 a25 25 0 0 1 50 0 v10" />
+    <path class="check" d="M45 70 l10 10 l15 -20" />
+    <line class="line" x1="90" y1="75" x2="130" y2="75" />
+    <path class="check" d="M45 105 l10 10 l15 -20" />
+    <line class="line" x1="90" y1="110" x2="130" y2="110" />
+    <path class="check" d="M45 140 l10 10 l15 -20" />
+    <line class="line" x1="90" y1="145" x2="130" y2="145" />
+  </g>
+  <text x="100" y="185" text-anchor="middle" font-family="'Poppins', 'Segoe UI', sans-serif" font-size="28" fill="#26A653" font-weight="600">LISTA DE COMPRAS</text>
+</svg>

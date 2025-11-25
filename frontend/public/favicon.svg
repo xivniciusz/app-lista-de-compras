@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <style>
+      .bag { fill: none; stroke: #26A653; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+      .check { fill: none; stroke: #26A653; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+      .line { stroke: #26A653; stroke-width: 18; stroke-linecap: round; }
+    </style>
+  </defs>
+  <g transform="translate(20 10)">
+    <path class="bag" d="M30 30 h100 a18 18 0 0 1 18 18 v114 a18 18 0 0 1 -18 18 h-100 a18 18 0 0 1 -18 -18 v-114 a18 18 0 0 1 18 -18 z" />
+    <path class="bag" d="M60 55 v-15 a40 40 0 0 1 80 0 v15" />
+    <path class="check" d="M48 82 l16 16 l24 -32" />
+    <line class="line" x1="120" y1="90" x2="160" y2="90" />
+    <path class="check" d="M48 132 l16 16 l24 -32" />
+    <line class="line" x1="120" y1="140" x2="160" y2="140" />
+  </g>
+</svg>
