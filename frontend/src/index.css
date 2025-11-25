@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos personalizados - comentários em português */
+:root {
+  --verde-principal: #26A653;
+  --verde-claro: #38B964;
+  --verde-escuro: #1E8643;
+}
+.dark {
+  --verde-principal: #26A653;
+  --verde-claro: #38B964;
+  --verde-escuro: #1E8643;
+}
+.bg-verde-principal { background-color: var(--verde-principal); }
+.bg-verde-claro { background-color: var(--verde-claro); }
+.bg-verde-escuro { background-color: var(--verde-escuro); }
+.text-verde-principal { color: var(--verde-principal); }
+
+/* Transições suaves */
+* { transition: background-color .25s, color .25s; }
+
+/* Scroll styling opcional */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cccccc; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb { background: #444; }
+
+@media (max-width: 640px) {
+  .minhas-listas header { padding: 0.75rem 1rem; }
+  #gridListas { grid-template-columns: 1fr !important; }
+  #detalheLista form { flex-direction: column; }
+  #detalheLista form input[type='number'] { width: 100%; }
+}

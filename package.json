@@ -1,0 +1,23 @@
+{
+  "name": "app_lista_de_compras",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite frontend --host --port 5175",
+    "build": "vite build frontend",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "vite": "^7.2.4"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.14"
+  }
+}
