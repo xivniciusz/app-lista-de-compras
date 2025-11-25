@@ -1,12 +1,9 @@
 // Configuração Vite com proxy para API FastAPI (comentários em português)
-import { defineConfig } from 'vite';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+const path = require('node:path');
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const frontendRoot = resolve(__dirname, 'frontend');
+const frontendRoot = path.resolve(__dirname, 'frontend');
 
-export default defineConfig({
+module.exports = {
   root: frontendRoot,
   server: {
     host: true,
@@ -20,12 +17,12 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: resolve(frontendRoot, 'dist'),
+    outDir: path.resolve(frontendRoot, 'dist'),
     rollupOptions: {
       input: {
-        main: resolve(frontendRoot, 'index.html'),
-        login: resolve(frontendRoot, 'login.html'),
+        main: path.resolve(frontendRoot, 'index.html'),
+        login: path.resolve(frontendRoot, 'login.html'),
       },
     },
   },
-});
+};
