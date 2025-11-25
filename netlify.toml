@@ -7,4 +7,14 @@
   NODE_VERSION = "20.17.0"
   NPM_FLAGS = "--legacy-peer-deps"
 
+# Diretório das funções Netlify (proxy backend)
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api-proxy"
+  status = 200
+  force = true
+
 # Caso precise rodar comandos adicionais antes do build (ex.: instalar deps python), use [[plugins]] ou scripts separados.
