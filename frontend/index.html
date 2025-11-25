@@ -23,11 +23,49 @@
       </header>
       <main class="flex-1 p-4 space-y-4">
         <div class="flex items-center justify-between flex-wrap gap-2">
-          <button id="btnNovaLista" class="bg-verde-principal hover:bg-verde-claro active:bg-verde-escuro text-white px-4 py-2 rounded font-medium shadow">Criar Nova Lista</button>
+          <div class="flex flex-wrap gap-2">
+            <button data-tab="ativas" class="tab-btn px-4 py-2 rounded font-medium border border-transparent bg-verde-principal text-white">Listas ativas</button>
+            <button data-tab="historico" class="tab-btn px-4 py-2 rounded font-medium border text-neutral-600 dark:text-neutral-200">Histórico</button>
+          </div>
           <span id="statusMsg" class="text-sm text-neutral-600 dark:text-neutral-300"></span>
         </div>
-        <div id="gridListas" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
-        <div id="detalheLista" class="hidden mt-6 space-y-4"></div>
+
+        <section id="secaoAtivas" class="space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <button id="btnNovaLista" class="bg-verde-principal hover:bg-verde-claro active:bg-verde-escuro text-white px-4 py-2 rounded font-medium shadow">Criar Nova Lista</button>
+          </div>
+          <div id="gridListas" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+          <div id="detalheLista" class="hidden mt-6 space-y-4"></div>
+        </section>
+
+        <section id="secaoHistorico" class="space-y-4 hidden">
+          <div class="flex flex-wrap gap-3 items-end">
+            <label class="flex-1 min-w-[220px] text-sm text-neutral-500">
+              Buscar por nome
+              <input id="historicoBusca" type="search" class="w-full border rounded px-3 py-2 dark:bg-neutral-800" placeholder="Ex.: compras mensais" />
+            </label>
+            <label class="w-44 text-sm text-neutral-500">
+              Período
+              <select id="historicoPeriodo" class="w-full border rounded px-3 py-2 dark:bg-neutral-800">
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d" selected>Últimos 30 dias</option>
+                <option value="custom">Faixa personalizada</option>
+              </select>
+            </label>
+            <label class="w-44 text-sm text-neutral-500 hidden" data-range="inicio">
+              Início
+              <input id="historicoInicio" type="date" class="w-full border rounded px-3 py-2 dark:bg-neutral-800" />
+            </label>
+            <label class="w-44 text-sm text-neutral-500 hidden" data-range="fim">
+              Fim
+              <input id="historicoFim" type="date" class="w-full border rounded px-3 py-2 dark:bg-neutral-800" />
+            </label>
+          </div>
+          <div id="gridHistorico" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+          <div class="flex justify-center">
+            <button id="btnMaisHistorico" class="px-4 py-2 border rounded text-sm">Carregar mais</button>
+          </div>
+        </section>
       </main>
       <!-- Modais -->
       <div id="modalCriar" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">

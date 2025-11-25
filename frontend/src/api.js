@@ -6,6 +6,16 @@ export function getApiBase() {
   return API_BASE;
 }
 
+const buildQueryString = (params = {}) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    search.append(key, value);
+  });
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+};
+
 // Função genérica para requisições
 export async function apiFetch(path, { method = 'GET', body, headers = {} } = {}) {
   const config = { method, headers: { 'Content-Type': 'application/json', ...headers } };
@@ -53,4 +63,16 @@ export const ItensAPI = {
   atualizar: (listaId, itemId, dados) => apiFetch(`/listas/${listaId}/itens/${itemId}`, { method: 'PUT', body: dados }),
   excluir: (listaId, itemId) => apiFetch(`/listas/${listaId}/itens/${itemId}`, { method: 'DELETE' }),
   reordenar: (listaId, ids) => apiFetch(`/listas/${listaId}/itens/ordenar`, { method: 'PUT', body: { ordem: ids } }),
+};
+
+export const HistoricoAPI = {
+  listar: (params) => apiFetch(`/historico${buildQueryString(params)}`),
+  restaurar: (id, nome) => {
+    const body = nome ? { nome } : undefined;
+    return apiFetch(`/historico/restaurar/${id}`, { method: 'POST', body });
+  },
+  duplicar: (id, nome) => {
+    const body = nome ? { nome } : undefined;
+    return apiFetch(`/historico/duplicar/${id}`, { method: 'POST', body });
+  },
 };

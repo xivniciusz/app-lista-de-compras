@@ -1,6 +1,6 @@
 import './index.css';
 import './api.js';
-import { ListasAPI, ItensAPI } from './api.js';
+import { ListasAPI, ItensAPI, HistoricoAPI } from './api.js';
 
 // Comentários em português explicando cada parte
 const appEl = document.getElementById('app');
@@ -13,6 +13,17 @@ let listaAtivaId = null;
 let itensDetalhe = [];
 let filtroItens = 'todos';
 let buscaItens = '';
+let abaAtiva = 'ativas';
+const historicoEstado = {
+  itens: [],
+  page: 1,
+  hasMore: true,
+  carregando: false,
+  busca: '',
+  periodo: '30d',
+  dataInicio: '',
+  dataFim: '',
+};
 
 function formatarData(iso) {
   const d = new Date(iso);
@@ -104,6 +115,13 @@ function inicializarEventos() {
   const inputNomeRenomear = document.getElementById('inputNomeRenomear');
   const modalExcluir = document.getElementById('modalExcluir');
   const btnConfirmarExcluir = document.getElementById('btnConfirmarExcluir');
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const historicoBusca = document.getElementById('historicoBusca');
+  const historicoPeriodo = document.getElementById('historicoPeriodo');
+  const historicoInicio = document.getElementById('historicoInicio');
+  const historicoFim = document.getElementById('historicoFim');
+  const btnMaisHistorico = document.getElementById('btnMaisHistorico');
+  const gridHistorico = document.getElementById('gridHistorico');
 
   // Alternar tema claro/escuro
   btnTema.addEventListener('click', () => {
@@ -120,6 +138,66 @@ function inicializarEventos() {
     modalCriar.classList.remove('hidden');
     inputNomeCriar.focus();
   });
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      alternarAba(btn.getAttribute('data-tab'));
+    });
+  });
+
+  toggleCamposCustom();
+
+  if (historicoBusca) {
+    let buscaTimeout;
+    historicoBusca.addEventListener('input', (e) => {
+      clearTimeout(buscaTimeout);
+      const valor = e.target.value;
+      buscaTimeout = setTimeout(() => {
+        historicoEstado.busca = valor;
+        carregarHistorico({ reset: true });
+      }, 300);
+    });
+  }
+
+  if (historicoPeriodo) {
+    historicoPeriodo.addEventListener('change', (e) => {
+      historicoEstado.periodo = e.target.value;
+      if (historicoEstado.periodo !== 'custom') {
+        historicoEstado.dataInicio = '';
+        historicoEstado.dataFim = '';
+        if (historicoInicio) historicoInicio.value = '';
+        if (historicoFim) historicoFim.value = '';
+        carregarHistorico({ reset: true });
+      }
+      toggleCamposCustom();
+    });
+  }
+
+  if (historicoInicio && historicoFim) {
+    historicoInicio.addEventListener('change', (e) => {
+      historicoEstado.dataInicio = e.target.value;
+      if (historicoEstado.dataFim) carregarHistorico({ reset: true });
+    });
+    historicoFim.addEventListener('change', (e) => {
+      historicoEstado.dataFim = e.target.value;
+      if (historicoEstado.dataInicio) carregarHistorico({ reset: true });
+    });
+  }
+
+  if (btnMaisHistorico) {
+    btnMaisHistorico.addEventListener('click', () => carregarHistorico());
+  }
+
+  if (gridHistorico) {
+    gridHistorico.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-h-action]');
+      if (!btn) return;
+      const acao = btn.getAttribute('data-h-action');
+      const id = Number(btn.getAttribute('data-id'));
+      if (!id) return;
+      await executarAcaoHistorico(acao, id);
+    });
+  }
 
   // Fechar modais por botões com data-close
   document.body.addEventListener('click', (e) => {
@@ -186,6 +264,8 @@ function inicializarEventos() {
       mostrarStatus(err.message);
     }
   });
+
+  atualizarTabs();
 }
 
 function mostrarStatus(msg) {
@@ -193,6 +273,157 @@ function mostrarStatus(msg) {
   if (!el) return;
   el.textContent = msg;
   setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+function atualizarTabs() {
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    const ativa = btn.getAttribute('data-tab') === abaAtiva;
+    btn.classList.toggle('bg-verde-principal', ativa);
+    btn.classList.toggle('text-white', ativa);
+    btn.classList.toggle('border-transparent', ativa);
+    btn.classList.toggle('border', !ativa);
+  });
+  const secaoAtivas = document.getElementById('secaoAtivas');
+  const secaoHistorico = document.getElementById('secaoHistorico');
+  if (secaoAtivas && secaoHistorico) {
+    secaoAtivas.classList.toggle('hidden', abaAtiva !== 'ativas');
+    secaoHistorico.classList.toggle('hidden', abaAtiva !== 'historico');
+  }
+}
+
+function alternarAba(novaAba) {
+  if (abaAtiva === novaAba) return;
+  abaAtiva = novaAba;
+  if (abaAtiva === 'historico') {
+    const detalhe = document.getElementById('detalheLista');
+    if (detalhe) detalhe.classList.add('hidden');
+    listaAtivaId = null;
+    itensDetalhe = [];
+    carregarHistorico({ reset: true });
+  }
+  atualizarTabs();
+}
+
+function toggleCamposCustom() {
+  const mostrar = historicoEstado.periodo === 'custom';
+  document.querySelectorAll('[data-range]').forEach((label) => {
+    label.classList.toggle('hidden', !mostrar);
+  });
+}
+
+function validarPeriodoCustom() {
+  if (historicoEstado.periodo !== 'custom') return true;
+  if (!historicoEstado.dataInicio || !historicoEstado.dataFim) {
+    mostrarStatus('Informe datas inicial e final para o filtro customizado.');
+    return false;
+  }
+  return true;
+}
+
+async function carregarHistorico({ reset = false } = {}) {
+  if (historicoEstado.carregando) return;
+  if (reset) {
+    historicoEstado.page = 1;
+    historicoEstado.itens = [];
+    historicoEstado.hasMore = true;
+  }
+  if (!historicoEstado.hasMore && !reset) return;
+  if (!validarPeriodoCustom()) return;
+  historicoEstado.carregando = true;
+  renderizarHistorico();
+  try {
+    const params = {
+      page: historicoEstado.page,
+      limit: 9,
+      periodo: historicoEstado.periodo,
+      busca: historicoEstado.busca || undefined,
+    };
+    if (historicoEstado.periodo === 'custom') {
+      params.data_inicio = historicoEstado.dataInicio;
+      params.data_fim = historicoEstado.dataFim;
+    }
+    const resp = await HistoricoAPI.listar(params);
+    if (reset) {
+      historicoEstado.itens = [];
+    }
+    historicoEstado.itens = historicoEstado.itens.concat(resp.data || []);
+    const meta = resp.meta || {};
+    const paginaAtual = meta.page || historicoEstado.page;
+    historicoEstado.hasMore = Boolean(meta.has_more);
+    historicoEstado.page = historicoEstado.hasMore ? paginaAtual + 1 : paginaAtual;
+  } catch (err) {
+    mostrarStatus(err.message);
+  } finally {
+    historicoEstado.carregando = false;
+    renderizarHistorico();
+  }
+}
+
+function renderizarHistorico() {
+  const grid = document.getElementById('gridHistorico');
+  if (!grid) return;
+  if (historicoEstado.itens.length === 0) {
+    grid.innerHTML = historicoEstado.carregando
+      ? "<p class='text-sm text-neutral-500'>Carregando histórico...</p>"
+      : "<p class='text-sm text-neutral-500'>Nenhuma lista finalizada encontrada.</p>";
+  } else {
+    grid.innerHTML = historicoEstado.itens
+      .map((h) => {
+        const previewLista = Array.isArray(h.preview_itens) ? h.preview_itens : [];
+        const preview = previewLista
+          .map((item, idx) => `
+            <li class='flex items-center gap-2'><span class='text-xs text-neutral-400'>${idx + 1}.</span> <span>${item.nome}</span></li>
+          `)
+          .join('');
+        const restantes = Math.max(0, (h.itens_count || 0) - previewLista.length);
+        const conteudoPreview = preview || "<li class='text-xs text-neutral-400'>Sem itens.</li>";
+        const extra = restantes > 0 ? `<li class='text-xs text-neutral-400'>+${restantes} itens</li>` : '';
+        return `
+          <article class='p-4 border rounded bg-white dark:bg-neutral-900 shadow-sm flex flex-col gap-3' data-h-card='${h.id}'>
+            <div class='flex items-start justify-between gap-3'>
+              <div>
+                <h3 class='font-semibold'>${h.nome}</h3>
+                <p class='text-xs text-neutral-500'>Finalizada em ${h.finalizada_em ? formatarData(h.finalizada_em) : '—'}</p>
+              </div>
+              <span class='text-xs px-2 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 border'>${h.itens_count || 0} itens</span>
+            </div>
+            <ul class='text-sm text-neutral-600 dark:text-neutral-300 space-y-1'>${conteudoPreview}${extra}</ul>
+            <div class='flex flex-wrap gap-2 text-sm'>
+              <button class='px-3 py-1 rounded border hover:bg-neutral-100 dark:hover:bg-neutral-800' data-h-action='restaurar' data-id='${h.id}'>Restaurar</button>
+              <button class='px-3 py-1 rounded border hover:bg-neutral-100 dark:hover:bg-neutral-800' data-h-action='duplicar' data-id='${h.id}'>Duplicar</button>
+            </div>
+          </article>
+        `;
+      })
+      .join('');
+  }
+
+  const btnMais = document.getElementById('btnMaisHistorico');
+  if (btnMais) {
+    btnMais.classList.toggle('hidden', !historicoEstado.hasMore);
+    btnMais.disabled = historicoEstado.carregando || !historicoEstado.hasMore;
+    btnMais.textContent = historicoEstado.carregando ? 'Carregando...' : 'Carregar mais';
+  }
+}
+
+async function executarAcaoHistorico(acao, id) {
+  const card = document.querySelector(`[data-h-card='${id}']`);
+  if (card) card.classList.add('animate-pulse');
+  try {
+    const fn = acao === 'duplicar' ? HistoricoAPI.duplicar : HistoricoAPI.restaurar;
+    const novaLista = await fn(id);
+    mostrarStatus(acao === 'duplicar' ? 'Lista duplicada!' : 'Lista restaurada!');
+    await carregarListas();
+    if (acao === 'restaurar' && novaLista?.id) {
+      alternarAba('ativas');
+      listaAtivaId = novaLista.id;
+      await carregarItensDaLista(novaLista.id, { preservarEstado: false });
+    }
+  } catch (err) {
+    mostrarStatus(err.message);
+  } finally {
+    if (card) card.classList.remove('animate-pulse');
+  }
 }
 
 async function carregarListas() {
