@@ -1,5 +1,6 @@
 // api.js - funções utilitárias para chamadas à API (comentários em português)
-const API_BASE = '/api'; // Em dev será proxy para backend; em produção pode apontar para domínio real
+const rawBase = (import.meta?.env?.VITE_API_BASE ?? '/api').trim();
+const API_BASE = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
 export function getApiBase() {
   // Exemplo de ajuste caso backend esteja em outra origem em produção
   return API_BASE;
