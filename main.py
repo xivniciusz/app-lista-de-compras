@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
-from typing import Generator
+from typing import Generator, Optional
 from models import Base, Lista, Item
 
 # Carrega variáveis de ambiente (.env)
@@ -62,11 +63,11 @@ def item_to_dict(i: Item):
         "nome": i.nome,
         "quantidade": i.quantidade,
         "comprado": i.comprado,
+        "ordem": i.ordem,
         "criado_em": i.criado_em.isoformat() if i.criado_em else None,
     }
 
 # Endpoints de listas
-from fastapi import Depends
 
 @app.get("/api/listas")
 def listar_listas(db: Session = Depends(get_db)):
@@ -115,7 +116,9 @@ def adicionar_item(lista_id: int, payload: dict, db: Session = Depends(get_db)):
     qtd = payload.get("quantidade") or 1
     if not nome:
         raise HTTPException(status_code=400, detail="Nome do item é obrigatório")
-    item = Item(lista_id=lista.id, nome=nome, quantidade=int(qtd))
+    maior_ordem = db.query(func.max(Item.ordem)).filter(Item.lista_id == lista.id).scalar()
+    proxima_ordem = (maior_ordem + 1) if maior_ordem is not None else 0
+    item = Item(lista_id=lista.id, nome=nome, quantidade=int(qtd), ordem=proxima_ordem)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -126,7 +129,12 @@ def listar_itens(lista_id: int, db: Session = Depends(get_db)):
     lista = db.query(Lista).filter(Lista.id == lista_id).first()
     if not lista:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
-    itens = db.query(Item).filter(Item.lista_id == lista_id).order_by(Item.criado_em.asc()).all()
+    itens = (
+        db.query(Item)
+        .filter(Item.lista_id == lista_id)
+        .order_by(Item.ordem.asc(), Item.criado_em.asc())
+        .all()
+    )
     return [item_to_dict(i) for i in itens]
 
 @app.put("/api/listas/{lista_id}/itens/{item_id}")
@@ -149,6 +157,40 @@ def atualizar_item(lista_id: int, item_id: int, payload: dict, db: Session = Dep
     db.refresh(item)
     return item_to_dict(item)
 
+
+@app.put("/api/listas/{lista_id}/itens/ordenar")
+def reordenar_itens(lista_id: int, payload: dict, db: Session = Depends(get_db)):
+    lista = db.query(Lista).filter(Lista.id == lista_id).first()
+    if not lista:
+        raise HTTPException(status_code=404, detail="Lista não encontrada")
+    nova_ordem = payload.get("ordem") if isinstance(payload, dict) else None
+    if not nova_ordem or not isinstance(nova_ordem, list):
+        raise HTTPException(status_code=400, detail="Informe uma lista de IDs em 'ordem'")
+
+    itens = db.query(Item).filter(Item.lista_id == lista_id).all()
+    itens_por_id = {i.id: i for i in itens}
+    ids_recebidos = []
+    for raw_id in nova_ordem:
+        try:
+            iid = int(raw_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="IDs de item inválidos")
+        if iid not in itens_por_id:
+            raise HTTPException(status_code=400, detail=f"Item {iid} não pertence à lista")
+        ids_recebidos.append(iid)
+
+    for pos, iid in enumerate(ids_recebidos):
+        itens_por_id[iid].ordem = pos
+
+    restantes = [i for i in itens if i.id not in ids_recebidos]
+    restantes.sort(key=lambda it: (it.ordem, it.criado_em))
+    offset = len(ids_recebidos)
+    for idx, item in enumerate(restantes):
+        item.ordem = offset + idx
+
+    db.commit()
+    return {"ok": True}
+
 @app.delete("/api/listas/{lista_id}/itens/{item_id}")
 def excluir_item(lista_id: int, item_id: int, db: Session = Depends(get_db)):
     item = db.query(Item).filter(Item.id == item_id, Item.lista_id == lista_id).first()
@@ -166,6 +208,70 @@ def resumo_lista(lista_id: int, db: Session = Depends(get_db)):
     total = db.query(func.count(Item.id)).filter(Item.lista_id == lista_id).scalar() or 0
     comprados = db.query(func.count(Item.id)).filter(Item.lista_id == lista_id, Item.comprado == True).scalar() or 0
     return {"id": lista.id, "itens": total, "comprados": comprados}
+
+
+@app.post("/api/listas/{lista_id}/finalizar")
+def finalizar_lista(
+    lista_id: int,
+    payload: Optional[dict] = Body(default=None),
+    db: Session = Depends(get_db),
+):
+    lista = db.query(Lista).filter(Lista.id == lista_id).first()
+    if not lista:
+        raise HTTPException(status_code=404, detail="Lista não encontrada")
+
+    deve_finalizar = True
+    if isinstance(payload, dict) and "finalizada" in payload:
+        deve_finalizar = bool(payload.get("finalizada"))
+
+    if deve_finalizar:
+        if not lista.finalizada:
+            lista.finalizada = True
+            lista.finalizada_em = datetime.now(timezone.utc)
+    else:
+        lista.finalizada = False
+        lista.finalizada_em = None
+
+    db.commit()
+    db.refresh(lista)
+    return lista_to_dict(lista, db)
+
+
+@app.get("/api/listas/{lista_id}/exportar")
+def exportar_lista(lista_id: int, formato: str = "txt", db: Session = Depends(get_db)):
+    lista = db.query(Lista).filter(Lista.id == lista_id).first()
+    if not lista:
+        raise HTTPException(status_code=404, detail="Lista não encontrada")
+    itens = (
+        db.query(Item)
+        .filter(Item.lista_id == lista_id)
+        .order_by(Item.ordem.asc(), Item.criado_em.asc())
+        .all()
+    )
+
+    nome_base = f"lista-{lista_id}-{lista.nome.strip().lower().replace(' ', '-') or 'itens'}"
+
+    if formato.lower() == "csv":
+        linhas = ["nome,quantidade,comprado"]
+        for item in itens:
+            nome_csv = item.nome.replace('"', '""')
+            linhas.append(
+                f'"{nome_csv}",{item.quantidade},{1 if item.comprado else 0}'
+            )
+        conteudo = "\n".join(linhas)
+        media_type = "text/csv"
+        filename = f"{nome_base}.csv"
+    else:
+        linhas = [f"Lista: {lista.nome}", ""]
+        for idx, item in enumerate(itens, start=1):
+            marcador = "[x]" if item.comprado else "[ ]"
+            linhas.append(f"{idx:02d}. {marcador} {item.nome} (x{item.quantidade})")
+        conteudo = "\n".join(linhas)
+        media_type = "text/plain"
+        filename = f"{nome_base}.txt"
+
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return PlainTextResponse(content=conteudo, media_type=media_type, headers=headers)
 
 # Exemplos de payload / respostas (comentários)
 # POST /api/listas { "nome": "Compras semanais" } -> 201 (aqui 200) { id: 1, nome: "Compras semanais", criado_em: "...", finalizada: false, finalizada_em: null, itens_count: 0 }

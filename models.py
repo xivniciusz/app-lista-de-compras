@@ -20,6 +20,7 @@ class Item(Base):
     nome = Column(String, nullable=False)
     quantidade = Column(Integer, nullable=False, server_default='1')
     comprado = Column(Boolean, nullable=False, server_default='false')
+    ordem = Column(Integer, nullable=False, server_default='0')
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 # Relacionamento na Lista
