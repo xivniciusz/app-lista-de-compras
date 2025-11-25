@@ -159,7 +159,6 @@ function togglePopup(id) {
 
 // Inicializa todos os handlers
 function inicializarEventos() {
-  const btnTema = document.getElementById('btnTema');
   const btnNova = document.getElementById('btnNovaLista');
   const modalCriar = document.getElementById('modalCriar');
   const formCriar = document.getElementById('formCriar');
@@ -183,12 +182,6 @@ function inicializarEventos() {
   const btnCheckHealth = document.getElementById('btnCheckHealth');
   const btnLogout = document.getElementById('btnLogout');
   const btnLogoutMobile = document.getElementById('btnLogoutMobile');
-
-  // Alternar tema claro/escuro
-  btnTema.addEventListener('click', () => {
-    const novoTema = configPreferencias.tema === 'escuro' ? 'claro' : 'escuro';
-    atualizarTema(novoTema);
-  });
 
   if (toggleTema) {
     toggleTema.addEventListener('change', () => {
