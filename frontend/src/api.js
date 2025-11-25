@@ -28,6 +28,23 @@ export const ListasAPI = {
   renomear: (id, nome) => apiFetch(`/listas/${id}`, { method: 'PUT', body: { nome } }),
   excluir: (id) => apiFetch(`/listas/${id}`, { method: 'DELETE' }),
   resumo: (id) => apiFetch(`/listas/${id}/resumo`),
+  finalizar: (id, finalizada = true) => apiFetch(`/listas/${id}/finalizar`, { method: 'POST', body: { finalizada } }),
+  exportar: async (id, formato = 'txt') => {
+    const resp = await fetch(`${API_BASE}/listas/${id}/exportar?formato=${encodeURIComponent(formato)}`);
+    if (!resp.ok) {
+      let msg = `Erro HTTP ${resp.status}`;
+      try {
+        const dataErr = await resp.json();
+        msg = dataErr.error || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+    const blob = await resp.blob();
+    const header = resp.headers.get('Content-Disposition') || '';
+    const match = header.match(/filename="?([^";]+)"?/i);
+    const filename = match ? match[1] : `lista-${id}.${formato}`;
+    return { blob, filename };
+  },
 };
 
 export const ItensAPI = {
@@ -35,4 +52,5 @@ export const ItensAPI = {
   criar: (listaId, nome, quantidade = 1) => apiFetch(`/listas/${listaId}/itens`, { method: 'POST', body: { nome, quantidade } }),
   atualizar: (listaId, itemId, dados) => apiFetch(`/listas/${listaId}/itens/${itemId}`, { method: 'PUT', body: dados }),
   excluir: (listaId, itemId) => apiFetch(`/listas/${listaId}/itens/${itemId}`, { method: 'DELETE' }),
+  reordenar: (listaId, ids) => apiFetch(`/listas/${listaId}/itens/ordenar`, { method: 'PUT', body: { ordem: ids } }),
 };
