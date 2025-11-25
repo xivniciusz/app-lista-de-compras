@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "vite frontend --host --port 5175",
-    "build": "vite build frontend",
+    "dev": "vite --host --port 5175",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

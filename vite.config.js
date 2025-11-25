@@ -7,6 +7,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const frontendRoot = resolve(__dirname, 'frontend');
 
 export default defineConfig({
+  root: frontendRoot,
   server: {
     host: true,
     port: 5175,
@@ -19,6 +20,7 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: resolve(frontendRoot, 'dist'),
     rollupOptions: {
       input: {
         main: resolve(frontendRoot, 'index.html'),
