@@ -17,4 +17,9 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.svg"
+  status = 200
+
 # Caso precise rodar comandos adicionais antes do build (ex.: instalar deps python), use [[plugins]] ou scripts separados.
